@@ -19,6 +19,7 @@
 #include <signal.h>
 
 int mode = -1;
+static struct mg_mgr *g_mgr = NULL;
 const char* proto_str[LIMIT] = { "tcp", "udp", "http", "ws" };
 
 char url_buffer[MAX_LEN]; // global url buffer
@@ -46,6 +47,12 @@ static void ghost_print_usage();
 
 static void signal_handler(int signo) {
   s_signo = signo;
+  if (g_mgr) {
+    struct mg_connection *c;
+    for (c = g_mgr->conns; c != NULL; c = c->next) {
+      mg_close_conn(c);
+    }
+  }
 }
 
 static void ghost_set_verbosity(int level) {
@@ -254,6 +261,7 @@ int main(int argc, char* argv[]) {
     struct mg_mgr mgr;
     mg_mgr_init(&mgr);
 
+    g_mgr = &mgr;
     struct mg_connection *conn = NULL;
 
     /* Register a signal handler for SIGINT (Ctrl + C) */
@@ -284,7 +292,12 @@ int main(int argc, char* argv[]) {
     
     /* blocking wait */
     while (!s_signo) {
-        mg_mgr_poll(&mgr, -1);
+        mg_mgr_poll(&mgr, 100);
+    }
+
+    /* Gracefully drain and close connections */
+    for (int i = 0; i < 5; i++) {
+        mg_mgr_poll(&mgr, 100);
     }
 
     mg_mgr_free(&mgr);
