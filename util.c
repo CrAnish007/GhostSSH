@@ -15,11 +15,63 @@
  */
 #include "ghost.h"
 
-#include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-void convert_to_wss(const char* url) {
-    memset((void*)url_buffer, '\0', MAX_LEN); 
+/* session */
+
+ghost_session *ghost_session_create(void) {
+    return (ghost_session *) calloc(1, sizeof(ghost_session));
+}
+
+/* Attach one endpoint to a session and take a reference on its behalf. */
+void ghost_session_bind(ghost_session *session, struct mg_connection *c, int role) {
+    if (session == NULL || c == NULL) return;
+
+    if (role == WS)
+        session->ws = c;
+    else
+        session->tcp = c;
+
+    c->fn_data = session;
+    session->refs++;
+}
+
+/* The other end of the tunnel for this connection, or NULL if it is gone. */
+struct mg_connection *ghost_session_peer(ghost_session *session,
+                                         struct mg_connection *c) {
+    if (session == NULL) return NULL;
+    if (c == session->tcp) return session->ws;
+    if (c == session->ws) return session->tcp;
+
+    return NULL;
+}
+
+/*
+ * Called from MG_EV_CLOSE. Drains the peer so a half-open tunnel cannot
+ * linger, then drops this endpoint's reference and frees the session once both
+ * endpoints are gone.
+ */
+void ghost_session_close(ghost_session *session, struct mg_connection *c) {
+    struct mg_connection *peer;
+
+    if (session == NULL || c == NULL) return;
+
+    peer = ghost_session_peer(session, c);
+    if (peer != NULL) peer->is_draining = 1;
+
+    if (c == session->tcp) session->tcp = NULL;
+    if (c == session->ws) session->ws = NULL;
+    c->fn_data = NULL;
+
+    if (--session->refs <= 0) free(session);
+}
+
+/* util */
+
+void convert_to_wss(const char *url, char *out, size_t len) {
+    memset(out, '\0', len);
     const char *p = strstr(url, "://");
     if (p != NULL) {
         p += 3;
@@ -27,23 +79,23 @@ void convert_to_wss(const char* url) {
         p = url;
     }
 
-    size_t len = strlen(p);
-    int has_ws = (len >= 3 && strcmp(p + len - 3, "/ws") == 0);
+    size_t plen = strlen(p);
+    int has_ws = (plen >= 3 && strcmp(p + plen - 3, "/ws") == 0);
 
     if (has_ws) {
-        snprintf(url_buffer, MAX_LEN, "wss://%s", p);
+        snprintf(out, len, "wss://%s", p);
     } else {
-        snprintf(url_buffer, MAX_LEN, "wss://%s/ws", p);
+        snprintf(out, len, "wss://%s/ws", p);
     }
 }
 
-void create_local_url(int protocol, int port) {
-    memset((void*)url_buffer, '\0', MAX_LEN); 
-    snprintf(url_buffer, MAX_LEN, "%s://localhost:%d", proto_str[protocol], port);
+void create_local_url(int protocol, int port, char *out, size_t len) {
+    memset(out, '\0', len);
+    snprintf(out, len, "%s://localhost:%d", proto_str[protocol], port);
 }
 
-void strip_https_for_tls_host(char *tls_host) {
-    memset(tls_host, 0, MAX_LEN);
+void strip_https_for_tls_host(char *out, size_t len) {
+    memset(out, 0, len);
 
     const char *p = config.ws_url;
 
@@ -51,5 +103,5 @@ void strip_https_for_tls_host(char *tls_host) {
         p += 8;  // skip "https://"
     }
 
-    snprintf(tls_host, MAX_LEN, "%s", p);
+    snprintf(out, len, "%s", p);
 }
