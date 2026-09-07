@@ -17,33 +17,39 @@
 
 #include <stdio.h>
 
-/* global buffer for tls host */
-char tls_host[MAX_LEN];
-
 void ghost_ws_handler(struct mg_connection *ws, int ev, void *ev_data) {
+    ghost_session *session = (ghost_session *) ws->fn_data;
+
     if (ev == MG_EV_WS_OPEN) {
+        struct mg_connection *tcp = ghost_session_peer(session, ws);
+
         MG_INFO(("WebSocket connection is successfully established"));
-        upgrade_done = 1;
-        
-        struct mg_connection *tcp = (struct mg_connection *) ws->fn_data;
-        if (tcp && !tcp->is_closing) {
+        if (session) session->upgrade_done = 1;
+
+        /* flush whatever the SSH client sent while the tunnel was coming up */
+        if (tcp && !tcp->is_closing && tcp->recv.len > 0) {
             mg_ws_send(ws, tcp->recv.buf, tcp->recv.len, WEBSOCKET_OP_BINARY);
             mg_iobuf_del(&tcp->recv, 0, tcp->recv.len);
         }
     } else if (ev == MG_EV_WS_MSG) {
         struct mg_ws_message* wm = (struct mg_ws_message *)ev_data;
-        struct mg_connection* tcp = (struct mg_connection *)ws->fn_data;
+        struct mg_connection* tcp = ghost_session_peer(session, ws);
         MG_DEBUG(("Data from websocket in CLIENT mode: %.*s", wm->data.len, wm->data.buf));
 
-        if (wm) {
+        if (wm && tcp) {
             mg_send(tcp, wm->data.buf, wm->data.len);
         }
+    } else if (ev == MG_EV_CLOSE) {
+        ghost_session_close(session, ws);
     }
 }
 
-void ghost_tls_handshake(struct mg_connection *tcp) {
+void ghost_tls_handshake(struct mg_connection *tcp, ghost_session *session) {
     /* configure TLS options */
-    strip_https_for_tls_host(tls_host);
+    char tls_host[MAX_LEN];
+    char url[MAX_LEN];
+
+    strip_https_for_tls_host(tls_host, sizeof(tls_host));
 
     struct mg_tls_opts tls_opts = {
         .name = mg_str(tls_host),
@@ -52,16 +58,15 @@ void ghost_tls_handshake(struct mg_connection *tcp) {
         .key = mg_str(""),
     };
 
-    convert_to_wss(config.ws_url);
+    convert_to_wss(config.ws_url, url, sizeof(url));
     struct mg_connection *ws = mg_ws_connect(tcp->mgr,
-            url_buffer,
+            url,
             ghost_ws_handler, NULL, NULL);
 
     if (ws) {
         /* Initialize TLS with SNI */
         mg_tls_init(ws, &tls_opts);
-        tcp->fn_data = ws;
-        ws->fn_data = tcp;
+        ghost_session_bind(session, ws, WS);
         MG_INFO(("WebSocket connection initiated with TLS/SNI"));
     } else {
         MG_INFO(("Failed to create WebSocket connection"));

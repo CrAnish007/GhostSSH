@@ -18,14 +18,10 @@
 
 #include <signal.h>
 
-int mode = -1;
-static struct mg_mgr *g_mgr = NULL;
+static int mode = -1;
 const char* proto_str[LIMIT] = { "tcp", "udp", "http", "ws" };
 
-char url_buffer[MAX_LEN]; // global url buffer
-int upgrade_done = 0;
-
-int s_signo = 0;
+volatile sig_atomic_t s_signo = 0;
 
 // Verbosity levels
 static int verbosity_level = 0;  // 0 = quiet, 1 = info, 2 = debug, 3 = verbose
@@ -45,14 +41,13 @@ static void ghost_set_verbosity(int level);
 static void ghost_parse_args(int argc, char* arg[]);
 static void ghost_print_usage();
 
+/*
+ * Only records the signal. Connections are closed from the event loop in
+ * main(), which keeps this handler async-signal-safe and lets mongoose flush
+ * and free each connection properly.
+ */
 static void signal_handler(int signo) {
   s_signo = signo;
-  if (g_mgr) {
-    struct mg_connection *c;
-    for (c = g_mgr->conns; c != NULL; c = c->next) {
-      mg_close_conn(c);
-    }
-  }
 }
 
 static void ghost_set_verbosity(int level) {
@@ -200,18 +195,34 @@ static void ghost_print_usage() {
 }
 
 void ghost_tcp_handler(struct mg_connection *tcp, int ev, void *ev_data) {
+    ghost_session *session = (ghost_session *) tcp->fn_data;
+
     if (ev == MG_EV_ACCEPT) {
+        /* CLIENT mode: a local SSH client arrived, give it its own session */
         MG_INFO(("Client accepted via TCP successfully"));
-        ghost_tls_handshake(tcp);
+
+        session = ghost_session_create();
+        if (session == NULL) {
+            MG_ERROR(("Cannot allocate session, dropping connection"));
+            tcp->is_closing = 1;
+
+            return ;
+        }
+
+        ghost_session_bind(session, tcp, TCP);
+        ghost_tls_handshake(tcp, session);
 
         return ;
     } else if (ev == MG_EV_CONNECT) {
-        upgrade_done = 1;
+        /* SERVER mode: this session is now wired up to sshd */
+        if (session) session->upgrade_done = 1;
         MG_INFO(("Connected to sshd successfully"));
 
         return ;
     }
     else if (ev == MG_EV_CLOSE) {
+        ghost_session_close(session, tcp);
+
         if (s_signo) {
             MG_INFO(("Shutting down client..."));
             return;
@@ -220,8 +231,8 @@ void ghost_tcp_handler(struct mg_connection *tcp, int ev, void *ev_data) {
         MG_INFO(("Client disconnected"));
     }
     else if (ev == MG_EV_READ) {
-        struct mg_connection *ws = (struct mg_connection *) tcp->fn_data;
-        
+        struct mg_connection *ws = ghost_session_peer(session, tcp);
+
         // Only show data content in debug or verbose mode
         if (verbosity_level >= 2) {
             MG_DEBUG(("Client read %d bytes", (int)tcp->recv.len));
@@ -231,7 +242,7 @@ void ghost_tcp_handler(struct mg_connection *tcp, int ev, void *ev_data) {
             }
         }
 
-        if (upgrade_done && ws && !ws->is_closing) {
+        if (session && session->upgrade_done && ws && !ws->is_closing) {
             mg_ws_send(ws, tcp->recv.buf, tcp->recv.len, WEBSOCKET_OP_BINARY);
             mg_iobuf_del(&tcp->recv, 0, tcp->recv.len);
         }
@@ -261,8 +272,8 @@ int main(int argc, char* argv[]) {
     struct mg_mgr mgr;
     mg_mgr_init(&mgr);
 
-    g_mgr = &mgr;
     struct mg_connection *conn = NULL;
+    char url[MAX_LEN];
 
     /* Register a signal handler for SIGINT (Ctrl + C) */
     signal(SIGINT, signal_handler);
@@ -270,20 +281,20 @@ int main(int argc, char* argv[]) {
 
     if (mode == SERVER) {
         /* create HTTP listener */
-        create_local_url(HTTP, config.http_server_port);
-        MG_INFO(("Starting server on %s", url_buffer));
-        conn = mg_http_listen(&mgr, url_buffer, ghost_http_handler, NULL);
+        create_local_url(HTTP, config.http_server_port, url, sizeof(url));
+        MG_INFO(("Starting server on %s", url));
+        conn = mg_http_listen(&mgr, url, ghost_http_handler, NULL);
 
     } else {
         /* create TCP listener */
-        create_local_url(TCP, config.tcp_server_port);
-        MG_INFO(("Starting client, listening on %s", url_buffer));
+        create_local_url(TCP, config.tcp_server_port, url, sizeof(url));
+        MG_INFO(("Starting client, listening on %s", url));
         MG_INFO(("Connecting to remote: %s", config.ws_url));
-        conn = mg_listen(&mgr, url_buffer, ghost_tcp_handler, NULL);
+        conn = mg_listen(&mgr, url, ghost_tcp_handler, NULL);
     }
 
     if (conn == NULL) {
-        MG_ERROR(("Cannot create listener on %s", url_buffer));
+        MG_ERROR(("Cannot create listener on %s", url));
         mg_mgr_free(&mgr);
         exit(1);
     }
@@ -296,6 +307,10 @@ int main(int argc, char* argv[]) {
     }
 
     /* Gracefully drain and close connections */
+    for (struct mg_connection *c = mgr.conns; c != NULL; c = c->next) {
+        c->is_closing = 1;
+    }
+
     for (int i = 0; i < 5; i++) {
         mg_mgr_poll(&mgr, 100);
     }

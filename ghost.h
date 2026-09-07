@@ -18,6 +18,8 @@
 
 #include "mongoose.h"
 
+#include <signal.h>
+
 /* default ports */
 #define SSH_PORT 22
 
@@ -49,24 +51,44 @@ typedef struct ghost_config {
     char ws_url[MAX_LEN];
 } ghost_config;
 
-extern int mode;
-extern const char* proto_str[LIMIT];
-extern char url_buffer[MAX_LEN];
-extern int upgrade_done;
-extern int s_signo;
+/*
+ * Per-connection state. A tunnelled session always pairs one TCP endpoint
+ * with one WebSocket endpoint, so both endpoints keep a pointer to the same
+ * ghost_session in their fn_data. Nothing about a session is global, which
+ * lets several clients be tunnelled at the same time without one client's
+ * progress (for example, its WebSocket coming up) affecting another's.
+ *
+ * refs counts the endpoints still alive; the session is freed once the last
+ * one reports MG_EV_CLOSE.
+ */
+typedef struct ghost_session {
+    struct mg_connection *tcp;  /* local listener (client mode) or sshd (server mode) */
+    struct mg_connection *ws;   /* WebSocket peer */
+    int upgrade_done;           /* set once this session's WebSocket can take payload */
+    int refs;
+} ghost_session;
 
-extern ghost_config config; // global configuration
+extern const char* proto_str[LIMIT];
+extern volatile sig_atomic_t s_signo;
+
+extern ghost_config config; /* startup configuration, immutable once parsed */
 
 /* API */
 void ghost_http_handler(struct mg_connection *http, int ev, void *ev_data);
 void ghost_ws_handler(struct mg_connection *ws, int ev, void *ev_data);
 void ghost_tcp_handler(struct mg_connection *tcp, int ev, void *ev_data);
-void ghost_tls_handshake(struct mg_connection *tcp);
+void ghost_tls_handshake(struct mg_connection *tcp, ghost_session *session);
 
+/* session */
+ghost_session *ghost_session_create(void);
+void ghost_session_bind(ghost_session *session, struct mg_connection *c, int role);
+struct mg_connection *ghost_session_peer(ghost_session *session,
+                                         struct mg_connection *c);
+void ghost_session_close(ghost_session *session, struct mg_connection *c);
 
 /* util */
-void convert_to_wss(const char* url);
-void create_local_url(int protocol, int port);
-void strip_https_for_tls_host(char *tls_host);
+void convert_to_wss(const char *url, char *out, size_t len);
+void create_local_url(int protocol, int port, char *out, size_t len);
+void strip_https_for_tls_host(char *out, size_t len);
 
 #endif // GHOST_H
