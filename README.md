@@ -1,26 +1,26 @@
-# GhostSSH [![Build Status](https://github.com/ankushT369/GhostSSH/actions/workflows/check-build.yml/badge.svg)](https://github.com/ankushT369/GhostSSH/actions?query=workflow%3AC)
+# gossh [![Build Status](https://github.com/ankushT369/gossh/actions/workflows/check-build.yml/badge.svg)](https://github.com/ankushT369/gossh/actions?query=workflow%3AC)
 
-**GhostSSH Lightweight SSH-over-HTTPS proxy for secure and firewall-friendly remote access**
+**gossh Lightweight SSH-over-HTTPS proxy for secure and firewall-friendly remote access**
 
 <p align="center">
-  <img src="docs/ghost_ssh.png" alt="GhostSSH" width="60%" />
+  <img src="docs/gossh_ssh.png" alt="gossh" width="60%" />
 </p>
 
 
-GhostSSH is a lightweight tool that enables SSH access over secure WebSocket (WSS) connections. It allows you to connect to remote machines even when direct SSH traffic (port 22) is blocked, by tunneling it through standard HTTPS infrastructure.
+gossh is a lightweight tool that enables SSH access over secure WebSocket (WSS) connections. It allows you to connect to remote machines even when direct SSH traffic (port 22) is blocked, by tunneling it through standard HTTPS infrastructure.
 
-In many environments — such as corporate networks, cloud platforms, or public Wi-Fi — only HTTP/HTTPS traffic is allowed. GhostSSH works by upgrading HTTP connections to WebSockets and streaming SSH data through them, enabling real-time, bidirectional communication without modifying the existing SSH server.
+In many environments — such as corporate networks, cloud platforms, or public Wi-Fi — only HTTP/HTTPS traffic is allowed. gossh works by upgrading HTTP connections to WebSockets and streaming SSH data through them, enabling real-time, bidirectional communication without modifying the existing SSH server.
 
-Instead of acting as a traditional HTTP proxy, GhostSSH creates a persistent tunnel:
+Instead of acting as a traditional HTTP proxy, gossh creates a persistent tunnel:
 
 * The client exposes a local TCP port for SSH
 * Data is forwarded over a secure WebSocket (WSS) connection
 * The server bridges this to the local SSH daemon (`sshd`)
 * Responses are streamed back instantly
 
-This makes GhostSSH behave like a raw TCP tunnel over WebSocket (WSS) using HTTPS infrastructure.
+This makes gossh behave like a raw TCP tunnel over WebSocket (WSS) using HTTPS infrastructure.
 
-GhostSSH is:
+gossh is:
 
 * **Lightweight** — minimal dependencies
 * **Real-time** — full-duplex streaming
@@ -31,43 +31,48 @@ It does not replace SSH or require changes to the SSH server—only provides a f
 
 ## How to use
 
-###  1. Start GhostSSH Server
+###  1. Start gossh Server
 
-Run the GhostSSH server on your machine (where `sshd` is running):
+Run the gossh server on your machine (where `sshd` is running):
 
 ```bash
-./bin/ghost-linux-amd64 server --port 7777
+./gossh server --port 7777
 ```
 
 <p align="center">
-  <img src="docs/step1.png" alt="GhostSSH" width="70%" />
+  <img src="docs/step1.png" alt="gossh" width="70%" />
 </p>
 
 
 > NOTE: Make sure SSH is running on port 22 (or specify using `--ssh`)
 
 
-###  2. Expose Server using ngrok
+###  2. Expose Server using ngrok or cloudflare tunnel
 
-Since GhostSSH uses WebSockets over HTTP, you can expose it using ngrok:
+Since gossh uses WebSockets over HTTP, you can expose it using ngrok:
 
 ```bash
 ngrok http 7777
 ```
 
+or 
+```bash
+cloudflared tunnel --url http://localhost:7777
+```
+
 <p align="center">
-  <img src="docs/step2.png" alt="GhostSSH" width="70%" />
+  <img src="docs/step2.png" alt="gossh" width="70%" />
 </p>
 
 **Copy the generated *HTTPS URL* (e.g., `https://xxxxx.ngrok-free.dev`)**
 
 
-###  3. Start GhostSSH Client
+###  3. Start gossh Client
 
 On the client machine, connect to the server using the ngrok URL:
 
 ```bash
-./bin/ghost-linux-amd64 client \
+./gossh client \
   --connect https://your-ngrok-url.ngrok-free.dev \
   --port 8888
 ```
@@ -83,10 +88,10 @@ Now use standard SSH to connect:
 ssh ankush@localhost -p 8888
 ```
 <p align="center">
-  <img src="docs/step4.png" alt="GhostSSH" width="70%" />
+  <img src="docs/step4.png" alt="gossh" width="70%" />
 </p>
 
-**You are now connected to the remote machine through GhostSSH!**
+**You are now connected to the remote machine through gossh!**
 
 
 ### Flow Summary
@@ -94,9 +99,9 @@ ssh ankush@localhost -p 8888
 ```text
 SSH Client (localhost:8888)
         ↓
-GhostSSH Client
+gossh Client
         ↓ (WSS over HTTPS via ngrok)
-GhostSSH Server
+gossh Server
         ↓
 sshd (localhost:22)
 ```
@@ -104,14 +109,12 @@ sshd (localhost:22)
 
 #### Notes
 * ngrok is used only to expose the server publicly
-* GhostSSH itself handles the tunneling over WebSocket (WSS)
+* gossh itself handles the tunneling over WebSocket (WSS)
 * Works in restricted networks where only HTTPS (port 443) is allowed
 
-## Build Options
 
+## Build
 > Note: The project is in its inital phase recommended to build for linux amd64 or WSL
-
-### 1. Default Build (Linux, dynamic linking)
 ```bash
 make
 ```
@@ -119,53 +122,9 @@ make
 Output:
 
 ```
-bin/ghost-linux-amd64
+bin/gossh
 ```
 
-
-
-### 2. Static Build (Linux, glibc)
-
-```bash
-make static
-```
-
-Output:
-
-```
-bin/ghost-linux-amd64-static
-```
-
-
-
-### 3. Portable Build (Linux, fully static)
-
-This build uses musl and produces a fully static binary that works across most Linux distributions.
-
-```bash
-make musl
-```
-
-Output:
-
-```
-bin/ghost-linux-amd64-musl
-```
-
-
-
-### 4. Windows Build (cross-compiled)
-> Note: TLS support is currently disabled in the Windows build.
-
-```bash
-make win
-```
-
-Output:
-
-```
-bin/ghost-windows-amd64.exe
-```
 
 ## Contribution
 Everyone is welcome to contribute if you want to learn low-level network programming this can be helpful. Please make a different branch before any pull request.

@@ -1,5 +1,5 @@
-module github.com/ankushT369/GhostSSH
+module gossh
 
-go 1.21
+go 1.26.1
 
 require github.com/gorilla/websocket v1.5.3
