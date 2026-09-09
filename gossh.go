@@ -21,6 +21,8 @@ import (
 )
 
 const (
+	version	   = "1.1.0"
+
 	defaultSSHPort  = 22
 	defaultHTTPPort = 7777
 	defaultTCPPort  = 8888
@@ -133,6 +135,9 @@ func errorf(format string, args ...any) {
 func usage() {
 	fmt.Println(`Usage: ghost <mode> [OPTIONS]
 
+Version:
+  version		Displays the version
+
 Modes:
   server                Run in server mode
   client                Run in client mode
@@ -174,6 +179,9 @@ func parseArgs(args []string) (Config, error) {
 	}
 
 	switch args[0] {
+	case "version", "--version":
+		fmt.Printf("v%s\n", version)
+		os.Exit(0)
 	case serverMode:
 		cfg.mode = serverMode
 	case clientMode:
