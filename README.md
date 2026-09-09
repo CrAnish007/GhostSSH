@@ -30,13 +30,17 @@ gossh is:
 It does not replace SSH or require changes to the SSH server—only provides a flexible transport layer on top.
 
 ## How to use
+### 0. Install
+```bash
+curl -fsSL https://raw.githubusercontent.com/ankushT369/gossh/main/install.sh | bash
+```
 
 ###  1. Start gossh Server
 
 Run the gossh server on your machine (where `sshd` is running):
 
 ```bash
-./gossh server --port 7777
+gossh server --port 7777
 ```
 
 <p align="center">
@@ -72,7 +76,7 @@ cloudflared tunnel --url http://localhost:7777
 On the client machine, connect to the server using the ngrok URL:
 
 ```bash
-./gossh client \
+gossh client \
   --connect https://your-ngrok-url.ngrok-free.dev \
   --port 8888
 ```
