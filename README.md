@@ -68,7 +68,7 @@ cloudflared tunnel --url http://localhost:7777
   <img src="docs/step2.png" alt="gossh" width="70%" />
 </p>
 
-**Copy the generated *HTTPS URL* (e.g., `https://xxxxx.ngrok-free.dev`)**
+**Copy the generated *HTTPS URL* (e.g., `https://xxxxx.trycloudflare.com`)**
 
 
 ###  3. Start gossh Client
@@ -77,7 +77,7 @@ On the client machine, connect to the server using the ngrok URL:
 
 ```bash
 gossh client \
-  --connect https://your-ngrok-url.ngrok-free.dev \
+  --connect https://following-reviews-select-lee.trycloudflare.com \
   --port 8888
 ```
 
