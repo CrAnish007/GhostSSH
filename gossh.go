@@ -133,7 +133,7 @@ func errorf(format string, args ...any) {
 }
 
 func usage() {
-	fmt.Println(`Usage: ghost <mode> [OPTIONS]
+	fmt.Println(`Usage: gossh <mode> [OPTIONS]
 
 Version:
   version		Displays the version
@@ -158,10 +158,10 @@ Client mode options:
   --port <port>         Local port to expose (default: 8888)
 
 Examples:
-  ghost server --port 7777 --ssh 22
-  ghost client --connect https://example.com --port 8888
-  ghost server -v --port 7777
-  ghost client -vv --connect https://example.com --port 8888
+  gossh server --port 7777 --ssh 22
+  gossh client --connect https://example.com --port 8888
+  gossh server -v --port 7777
+  gossh client -vv --connect https://example.com --port 8888
 
 SSH connection:
   ssh user@localhost -p 8888`)
@@ -191,7 +191,7 @@ func parseArgs(args []string) (Config, error) {
 	}
 
 	// Keep the CLI close to the C version.
-	fs := flag.NewFlagSet("ghost", flag.ContinueOnError)
+	fs := flag.NewFlagSet("gossh", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 
 	// We cannot use a normal bool flag for -vvv because the original CLI
@@ -311,7 +311,7 @@ func runServer(cfg Config) error {
 		Handler: mux,
 	}
 
-	infof("Ghost started in SERVER mode")
+	infof("gossh started in SERVER mode")
 	infof("HTTP/WebSocket port: %d", cfg.httpServerPort)
 	infof("SSH port: %d", cfg.sshdPort)
 	infof("Listening on %s", createLocalURL("http", cfg.httpServerPort))
@@ -456,7 +456,7 @@ func runClient(cfg Config) error {
 		return err
 	}
 
-	infof("Ghost started in CLIENT mode")
+	infof("gossh started in CLIENT mode")
 	infof("Local port: %d", cfg.tcpServerPort)
 	infof("Remote URL: %s", wsURL)
 	infof("Listening on %s", listenAddr)
