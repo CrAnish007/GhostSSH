@@ -8,7 +8,7 @@ all: build
 
 build:
 	mkdir -p $(BIN_DIR)
-	GOOS=linux GOARCH=amd64 $(GO) build -o $(BIN_DIR)/$(BINARY) .
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -o $(BIN_DIR)/$(BINARY) .
 
 clean:
 	rm -rf $(BIN_DIR)
