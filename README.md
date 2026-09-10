@@ -2,11 +2,6 @@
 
 **gossh Lightweight SSH-over-HTTPS proxy for secure and firewall-friendly remote access**
 
-<p align="center">
-  <img src="docs/gossh_ssh.png" alt="gossh" width="60%" />
-</p>
-
-
 gossh is a lightweight tool that enables SSH access over secure WebSocket (WSS) connections. It allows you to connect to remote machines even when direct SSH traffic (port 22) is blocked, by tunneling it through standard HTTPS infrastructure.
 
 In many environments — such as corporate networks, cloud platforms, or public Wi-Fi — only HTTP/HTTPS traffic is allowed. gossh works by upgrading HTTP connections to WebSockets and streaming SSH data through them, enabling real-time, bidirectional communication without modifying the existing SSH server.
@@ -53,7 +48,7 @@ gossh server --port 7777
 
 ###  2. Expose Server using ngrok or cloudflare tunnel
 
-Since gossh uses WebSockets over HTTP, you can expose it using ngrok:
+Since gossh uses WebSockets over HTTP, you can expose it using:
 
 ```bash
 ngrok http 7777
@@ -68,12 +63,16 @@ cloudflared tunnel --url http://localhost:7777
   <img src="docs/step2.png" alt="gossh" width="70%" />
 </p>
 
+[Click here for cloudflare tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/)
+
+[Click here for ngrok tunnel](https://ngrok.com/docs/share-localhost/overview)
+
 **Copy the generated *HTTPS URL* (e.g., `https://xxxxx.trycloudflare.com`)**
 
 
 ###  3. Start gossh Client
 
-On the client machine, connect to the server using the ngrok URL:
+On the client machine, connect to the server using the ngrok or cloudflare url:
 
 ```bash
 gossh client \
