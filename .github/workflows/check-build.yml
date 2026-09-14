@@ -1,4 +1,4 @@
-name: Build GhostSSH
+name: CI
 
 on:
   push:
@@ -7,31 +7,38 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
-    runs-on: ${{matrix.os}}
+  test:
+    name: Build and test
+    runs-on: ${{ matrix.os }}
 
-    strategy: 
+    strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Build GhostSSH
-      run: |
-        if [ "$RUNNER_OS" = "macOS" ]; then 
-          make mac \
-            CC=gcc \
-            BIN=bin/ghost-macos-arm64 \
-            CFLAGS="-Wall -Wextra -g -DMG_TLS=MG_TLS_OPENSSL -I$(brew --prefix openssl)/include" \
-            LDFLAGS="-L$(brew --prefix openssl)/lib -lssl -lcrypto"
-          else 
-            make 
-          fi
-    - name: Make test script executable
-      run: chmod +x test/test-cli.sh
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
 
-    - name: Run CLI test
-      env:
-        GHOST: "./bin/ghost-linux-amd64"
-      run: ./test/test-cli.sh
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      # -race needs cgo, which is enabled by default on both runners.
+      - name: Test
+        run: go test -race -count=1 ./...
+
+      - name: Build binary
+        run: go build -o bin/gossh .
+
+      - name: CLI smoke test
+        run: |
+          chmod +x test/test-cli.sh
+          ./test/test-cli.sh
