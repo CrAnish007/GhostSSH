@@ -8,10 +8,11 @@ all: build
 
 # Build for the machine running make. The build used to be pinned to
 # linux/amd64, which meant that on macOS it produced a Linux binary that could
-# not run; the release targets below are where cross-compiling belongs.
+# not run; cross-compiling now lives in the release targets below. Still
+# statically linked, as before.
 build:
 	mkdir -p $(BIN_DIR)
-	$(GO) build -o $(BIN_DIR)/$(BINARY) .
+	CGO_ENABLED=0 $(GO) build -o $(BIN_DIR)/$(BINARY) .
 
 vet:
 	$(GO) vet ./...
