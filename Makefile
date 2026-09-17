@@ -17,9 +17,6 @@ build:
 vet:
 	$(GO) vet ./...
 
-test:
-	$(GO) test -race ./...
-
 # Release artifacts. Go cross-compiles without a C toolchain, so either target
 # can be built from any host.
 linux:

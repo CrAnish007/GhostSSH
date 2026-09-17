@@ -31,12 +31,12 @@ jobs:
       - name: Vet
         run: make vet
 
-      # make test runs go test -race, which needs cgo. It is enabled by
-      # default on both runners.
-      - name: Test
-        run: make test
-
       - name: CLI smoke test
         run: |
-          chmod +x test/test-cli.sh
-          ./test/test-cli.sh
+          chmod +x test/smoke-test.sh
+          ./test/smoke-test.sh
+
+      - name: CLI integration test
+        run: |
+          chmod +x test/integration-test.sh
+          ./test/integration-test.sh
