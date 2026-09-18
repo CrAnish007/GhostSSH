@@ -1,8 +1,9 @@
-package log_test
+//go:build logger
+
+package log
 
 import (
 	"fmt"
-	"gossh/internal/log"
 	"gossh/internal/utils/test"
 	"strings"
 	"testing"
@@ -11,32 +12,32 @@ import (
 // TestLog_LevelVerbosity ensures the LogLevel-to-verbosity mapping remains stable.
 func TestLog_LevelVerbosity(t *testing.T) {
 	for _, i := range []struct {
-		log.LogLevel
+		LogLevel
 		int
 	}{
-		{log.TRACE, 5},
-		{log.DEBUG, 4},
-		{log.INFO, 3},
-		{log.WARN, 2},
-		{log.ERROR, 1},
+		{TRACE, 5},
+		{DEBUG, 4},
+		{INFO, 3},
+		{WARN, 2},
+		{ERROR, 1},
 	} {
-		if i.int != i.GetVerbosity() {
-			t.Logf("expected %v to equal %v but was %v", i.LogLevel, i.int, i.GetVerbosity())
+		if i.int != i.getVerbosity() {
+			t.Logf("expected %v to equal %v but was %v", i.LogLevel, i.int, i.getVerbosity())
 			t.Fail()
 		}
 	}
 }
 
 type lineTest struct {
-	level  log.LogLevel
+	level  LogLevel
 	format string
 	args   []any
 }
 
 // expectLoggedLines verifies that only the expected log lines are written for a given verbosity level.
-func expectLoggedLines(t *testing.T, level log.LogLevel, given []lineTest, expected []string) {
-	lw := &test.NoOpLineWriter{}
-	testLogger := log.NewLogger(lw, level.GetVerbosity())
+func expectLoggedLines(t *testing.T, level LogLevel, given []lineTest, expected []string) {
+	lw := &test.MemLogger{}
+	testLogger := NewLogger(level, lw)
 
 	// Write each line to the logger. Messages above the configured verbosity should be ignored.
 	for _, test := range given {
@@ -67,67 +68,67 @@ func expectLoggedLines(t *testing.T, level log.LogLevel, given []lineTest, expec
 func TestLog_Verbosity(t *testing.T) {
 	testLines := []lineTest{
 		{
-			level:  log.TRACE,
+			level:  TRACE,
 			format: "Test %v",
-			args:   []any{log.TRACE},
+			args:   []any{TRACE},
 		},
 		{
-			level:  log.DEBUG,
+			level:  DEBUG,
 			format: "Test %v",
-			args:   []any{log.DEBUG},
+			args:   []any{DEBUG},
 		},
 		{
-			level:  log.INFO,
+			level:  INFO,
 			format: "Test %v",
-			args:   []any{log.INFO},
+			args:   []any{INFO},
 		},
 		{
-			level:  log.WARN,
+			level:  WARN,
 			format: "Test %v",
-			args:   []any{log.WARN},
+			args:   []any{WARN},
 		},
 		{
-			level:  log.ERROR,
+			level:  ERROR,
 			format: "Test %v",
-			args:   []any{log.ERROR},
+			args:   []any{ERROR},
 		},
 	}
 
 	for _, test := range []struct {
 		name  string
-		level log.LogLevel
+		level LogLevel
 		lines []lineTest
 	}{
 		{
 			name:  "TraceAndBelow",
-			level: log.TRACE,
+			level: TRACE,
 			lines: testLines,
 		},
 		{
 			name:  "DebugAndBelow",
-			level: log.DEBUG,
+			level: DEBUG,
 			lines: testLines,
 		},
 		{
 			name:  "InfoAndBelow",
-			level: log.INFO,
+			level: INFO,
 			lines: testLines,
 		},
 		{
 			name:  "WarnAndBelow",
-			level: log.WARN,
+			level: WARN,
 			lines: testLines,
 		},
 		{
 			name:  "ErrorAndBelow",
-			level: log.ERROR,
+			level: ERROR,
 			lines: testLines,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			expect := []string{}
 			for _, line := range test.lines {
-				if line.level.GetVerbosity() <= test.level.GetVerbosity() {
+				if line.level.getVerbosity() <= test.level.getVerbosity() {
 					expect = append(expect, fmt.Sprintf(line.format, line.args...))
 				}
 			}
@@ -137,17 +138,17 @@ func TestLog_Verbosity(t *testing.T) {
 }
 
 // getLogFuncByLevel returns the logger method associated with the specified log level.
-func getLogFuncByLevel(testLogger log.Logger, level log.LogLevel) func(format string, args ...any) {
+func getLogFuncByLevel(testLogger Logger, level LogLevel) func(format string, args ...any) {
 	switch level {
-	case log.TRACE:
+	case TRACE:
 		return testLogger.Trace
-	case log.DEBUG:
+	case DEBUG:
 		return testLogger.Debug
-	case log.INFO:
+	case INFO:
 		return testLogger.Info
-	case log.WARN:
+	case WARN:
 		return testLogger.Warn
-	case log.ERROR:
+	case ERROR:
 		return testLogger.Error
 	}
 	return nil

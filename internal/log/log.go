@@ -25,7 +25,7 @@ const (
 
 type LogLevel string
 
-func (level LogLevel) GetVerbosity() int {
+func (level LogLevel) getVerbosity() int {
 	switch level {
 	case TRACE:
 		return 5
@@ -44,22 +44,27 @@ func (level LogLevel) GetVerbosity() int {
 
 type logger struct {
 	i     *log.Logger
-	level int
+	level LogLevel
 }
 
 // NewLogger creates a logger that implements the Logger interface.
-func NewLogger(out io.Writer, verbosity int) *logger {
+func NewLogger(level LogLevel, out io.Writer) *logger {
 	return &logger{
 		i:     log.New(out, "", log.LstdFlags),
-		level: verbosity,
+		level: level,
 	}
 }
 
 func (l *logger) print(level LogLevel, format string, args ...any) {
-	if level.GetVerbosity() > l.level {
+	if level.getVerbosity() > l.level.getVerbosity() {
 		return
 	}
 	l.i.Printf("[%s] %s\n", level, fmt.Sprintf(format, args...))
+}
+
+// SetVerbosity
+func (l *logger) SetVerbosity(level LogLevel) {
+	l.level = level
 }
 
 func (l *logger) Trace(format string, args ...any) {

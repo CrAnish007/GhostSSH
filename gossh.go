@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"gossh/internal/log"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -39,8 +39,7 @@ const (
 )
 
 var (
-	verbosity int
-	logger    = log.New(os.Stderr, "", log.LstdFlags)
+	logger = log.NewLogger(log.INFO, os.Stderr)
 )
 
 type Config struct {
@@ -113,28 +112,6 @@ func (s *Session) sendTCP(data []byte) error {
 
 	_, err := s.tcp.Write(data)
 	return err
-}
-
-func debugf(format string, args ...any) {
-	if verbosity >= 2 {
-		logger.Printf("[DEBUG] "+format, args...)
-	}
-}
-
-func verbosef(format string, args ...any) {
-	if verbosity >= 3 {
-		logger.Printf("[VERBOSE] "+format, args...)
-	}
-}
-
-func infof(format string, args ...any) {
-	if verbosity >= 1 {
-		logger.Printf("[INFO] "+format, args...)
-	}
-}
-
-func errorf(format string, args ...any) {
-	logger.Printf("[ERROR] "+format, args...)
 }
 
 func usage() {
@@ -226,15 +203,15 @@ func parseArgs(args []string) (Config, error) {
 	}
 
 	if quiet {
-		verbosity = 0
+		logger.SetVerbosity(log.ERROR)
 	} else if vvv {
-		verbosity = 3
+		logger.SetVerbosity(log.TRACE)
 	} else if vv {
-		verbosity = 2
+		logger.SetVerbosity(log.DEBUG)
 	} else if v || verbose {
-		verbosity = 1
+		logger.SetVerbosity(log.INFO)
 	} else {
-		verbosity = 1
+		logger.SetVerbosity(log.INFO)
 	}
 
 	if cfg.mode == serverMode {
@@ -322,17 +299,17 @@ func runServer(cfg Config) error {
 		Handler: mux,
 	}
 
-	infof("gossh started in SERVER mode")
-	infof("HTTP/WebSocket port: %d", cfg.httpServerPort)
-	infof("SSH port: %d", cfg.sshdPort)
-	infof("Listening on %s", createLocalURL("http", cfg.httpServerPort))
+	logger.Info("gossh started in SERVER mode")
+	logger.Info("HTTP/WebSocket port: %d", cfg.httpServerPort)
+	logger.Info("SSH port: %d", cfg.sshdPort)
+	logger.Info("Listening on %s", createLocalURL("http", cfg.httpServerPort))
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		<-stop
-		infof("Shutting down server...")
+		logger.Info("Shutting down server...")
 		ctx, cancel := shutdownContext()
 		defer cancel()
 		_ = server.Shutdown(ctx)
@@ -366,25 +343,25 @@ func handleServerWebSocket(w http.ResponseWriter, r *http.Request, cfg Config) {
 
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		errorf("WebSocket upgrade failed: %v", err)
+		logger.Error("WebSocket upgrade failed: %v", err)
 		return
 	}
 
 	session := NewSession()
 	session.setWS(ws)
 
-	infof("WebSocket connection established")
+	logger.Info("WebSocket connection established")
 
 	sshAddr := fmt.Sprintf("localhost:%d", cfg.sshdPort)
 	tcp, err := net.Dial("tcp", sshAddr)
 	if err != nil {
-		errorf("Cannot connect to sshd on %s: %v", sshAddr, err)
+		logger.Error("Cannot connect to sshd on %s: %v", sshAddr, err)
 		session.close()
 		return
 	}
 
 	session.setTCP(tcp)
-	infof("Connected to sshd successfully")
+	logger.Info("Connected to sshd successfully")
 
 	runServerSession(session)
 }
@@ -402,7 +379,7 @@ func runServerSession(s *Session) {
 		for {
 			messageType, data, err := s.ws.ReadMessage()
 			if err != nil {
-				debugf("WebSocket read ended: %v", err)
+				logger.Debug("WebSocket read ended: %v", err)
 				return
 			}
 
@@ -410,14 +387,14 @@ func runServerSession(s *Session) {
 				continue
 			}
 
-			debugf("Data from websocket in SERVER mode: %d bytes", len(data))
+			logger.Debug("Data from websocket in SERVER mode: %d bytes", len(data))
 
 			if err := s.sendTCP(data); err != nil {
-				debugf("TCP write failed: %v", err)
+				logger.Debug("TCP write failed: %v", err)
 				return
 			}
 
-			verbosef("Forwarded %d bytes WS -> TCP", len(data))
+			logger.Trace("Forwarded %d bytes WS -> TCP", len(data))
 		}
 	}()
 
@@ -430,19 +407,19 @@ func runServerSession(s *Session) {
 		for {
 			n, err := s.tcp.Read(buf)
 			if n > 0 {
-				debugf("SSH read %d bytes", n)
+				logger.Debug("SSH read %d bytes", n)
 
 				if err := s.sendWS(buf[:n]); err != nil {
-					debugf("WebSocket write failed: %v", err)
+					logger.Debug("WebSocket write failed: %v", err)
 					return
 				}
 
-				verbosef("Forwarded %d bytes TCP -> WS", n)
+				logger.Trace("Forwarded %d bytes TCP -> WS", n)
 			}
 
 			if err != nil {
 				if err != io.EOF {
-					debugf("TCP read ended: %v", err)
+					logger.Debug("TCP read ended: %v", err)
 				}
 				return
 			}
@@ -450,7 +427,7 @@ func runServerSession(s *Session) {
 	}()
 
 	wg.Wait()
-	infof("Client disconnected")
+	logger.Info("Client disconnected")
 }
 
 func runClient(cfg Config) error {
@@ -467,17 +444,17 @@ func runClient(cfg Config) error {
 		return err
 	}
 
-	infof("gossh started in CLIENT mode")
-	infof("Local port: %d", cfg.tcpServerPort)
-	infof("Remote URL: %s", wsURL)
-	infof("Listening on %s", listenAddr)
+	logger.Info("gossh started in CLIENT mode")
+	logger.Info("Local port: %d", cfg.tcpServerPort)
+	logger.Info("Remote URL: %s", wsURL)
+	logger.Info("Listening on %s", listenAddr)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		<-stop
-		infof("Shutting down client...")
+		logger.Info("Shutting down client...")
 		_ = ln.Close()
 	}()
 
@@ -490,7 +467,7 @@ func runClient(cfg Config) error {
 			return err
 		}
 
-		infof("Client accepted via TCP successfully")
+		logger.Info("Client accepted via TCP successfully")
 
 		go handleClientTCP(tcp, wsURL, cfg.wsURL)
 	}
@@ -513,16 +490,16 @@ func handleClientTCP(tcp net.Conn, wsURL string, originalURL string) {
 		},
 	}
 
-	infof("Connecting to remote WebSocket: %s", wsURL)
+	logger.Info("Connecting to remote WebSocket: %s", wsURL)
 
 	ws, _, err := dialer.Dial(wsURL, nil)
 	if err != nil {
-		errorf("Failed to create WebSocket connection: %v", err)
+		logger.Error("Failed to create WebSocket connection: %v", err)
 		return
 	}
 
 	session.setWS(ws)
-	infof("WebSocket connection successfully established")
+	logger.Info("WebSocket connection successfully established")
 
 	runClientSession(session)
 }
@@ -543,19 +520,19 @@ func runClientSession(s *Session) {
 			n, err := s.tcp.Read(buf)
 
 			if n > 0 {
-				debugf("Client read %d bytes", n)
+				logger.Debug("Client read %d bytes", n)
 
 				if err := s.sendWS(buf[:n]); err != nil {
-					debugf("WebSocket write failed: %v", err)
+					logger.Debug("WebSocket write failed: %v", err)
 					return
 				}
 
-				verbosef("Forwarded %d bytes TCP -> WS", n)
+				logger.Trace("Forwarded %d bytes TCP -> WS", n)
 			}
 
 			if err != nil {
 				if err != io.EOF {
-					debugf("TCP read ended: %v", err)
+					logger.Debug("TCP read ended: %v", err)
 				}
 				return
 			}
@@ -569,7 +546,7 @@ func runClientSession(s *Session) {
 		for {
 			messageType, data, err := s.ws.ReadMessage()
 			if err != nil {
-				debugf("WebSocket read ended: %v", err)
+				logger.Debug("WebSocket read ended: %v", err)
 				return
 			}
 
@@ -577,19 +554,19 @@ func runClientSession(s *Session) {
 				continue
 			}
 
-			debugf("Data from websocket in CLIENT mode: %d bytes", len(data))
+			logger.Debug("Data from websocket in CLIENT mode: %d bytes", len(data))
 
 			if err := s.sendTCP(data); err != nil {
-				debugf("TCP write failed: %v", err)
+				logger.Debug("TCP write failed: %v", err)
 				return
 			}
 
-			verbosef("Forwarded %d bytes WS -> TCP", len(data))
+			logger.Trace("Forwarded %d bytes WS -> TCP", len(data))
 		}
 	}()
 
 	wg.Wait()
-	infof("Client disconnected")
+	logger.Info("Client disconnected")
 }
 
 func isClosedNetworkError(err error) bool {
@@ -605,7 +582,7 @@ func main() {
 	cfg, err := parseArgs(os.Args[1:])
 	if err != nil {
 		usage()
-		errorf("%v", err)
+		logger.Error("%v", err)
 		os.Exit(1)
 	}
 
@@ -622,7 +599,7 @@ func main() {
 	}
 
 	if runErr != nil {
-		errorf("%v", runErr)
+		logger.Error("%v", runErr)
 		os.Exit(1)
 	}
 }
