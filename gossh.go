@@ -31,6 +31,11 @@ const (
 	clientMode = "client"
 
 	wsPath = "/ws"
+
+	ReadBufSize  = 32 * 1024
+	WriteBufSize = 32 * 1024
+
+	HandShakeTime = 15
 )
 
 var (
@@ -351,8 +356,8 @@ func handleServerWebSocket(w http.ResponseWriter, r *http.Request, cfg Config) {
 	}
 
 	upgrader := websocket.Upgrader{
-		ReadBufferSize:  32 * 1024,
-		WriteBufferSize: 32 * 1024,
+		ReadBufferSize:  ReadBufSize,
+		WriteBufferSize: WriteBufSize,
 		CheckOrigin: func(r *http.Request) bool {
 			// The original Mongoose handler does not enforce an Origin.
 			return true
@@ -499,9 +504,9 @@ func handleClientTCP(tcp net.Conn, wsURL string, originalURL string) {
 	host := tlsHost(originalURL)
 
 	dialer := websocket.Dialer{
-		ReadBufferSize:   32 * 1024,
-		WriteBufferSize:  32 * 1024,
-		HandshakeTimeout: 15 * time.Second,
+		ReadBufferSize:   ReadBufSize,
+		WriteBufferSize:  WriteBufSize,
+		HandshakeTimeout: HandShakeTime * time.Second,
 		TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12,
 			ServerName: host,
