@@ -172,7 +172,6 @@ func parseArgs(args []string) (Config, error) {
 		return Config{}, fmt.Errorf("unknown mode: %s", args[0])
 	}
 
-	// Keep the CLI close to the C version.
 	fs := flag.NewFlagSet("gossh", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 
@@ -232,8 +231,7 @@ func parseArgs(args []string) (Config, error) {
 	return cfg, nil
 }
 
-// The C implementation always turns the remote URL into wss://.../ws.
-// This function preserves that behavior.
+// Turns the remote URL into websocket format
 func convertToWSS(raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -336,7 +334,6 @@ func handleServerWebSocket(w http.ResponseWriter, r *http.Request, cfg Config) {
 		ReadBufferSize:  ReadBufSize,
 		WriteBufferSize: WriteBufSize,
 		CheckOrigin: func(r *http.Request) bool {
-			// The original Mongoose handler does not enforce an Origin.
 			return true
 		},
 	}
