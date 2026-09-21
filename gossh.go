@@ -36,6 +36,7 @@ const (
 	WriteBufSize = 32 * 1024
 
 	HandShakeTime = 15
+	SshTime       = 3
 )
 
 var (
@@ -308,6 +309,19 @@ func runServer(cfg Config) error {
 	logger.Info("gossh started in SERVER mode")
 	logger.Info("HTTP/WebSocket port: %d", cfg.httpServerPort)
 	logger.Info("SSH port: %d", cfg.sshdPort)
+	logger.Info("Checking SSH connection")
+
+	sshUrl := fmt.Sprintf("127.0.0.1:%d", cfg.sshdPort)
+	timeout := SshTime * time.Second
+	conn, err := net.DialTimeout("tcp", sshUrl, timeout)
+
+	if err != nil {
+		logger.Warn("SSH server is down or unreachable: %v", err)
+	} else {
+		logger.Info("SSH server port is open and reachable")
+		conn.Close()
+	}
+
 	logger.Info("Listening on %s", createLocalURL("http", cfg.httpServerPort))
 
 	stop := make(chan os.Signal, 1)
@@ -321,7 +335,7 @@ func runServer(cfg Config) error {
 		_ = server.Shutdown(ctx)
 	}()
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err == http.ErrServerClosed {
 		return nil
 	}
