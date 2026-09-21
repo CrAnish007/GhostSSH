@@ -30,7 +30,8 @@ const (
 	serverMode = "server"
 	clientMode = "client"
 
-	wsPath = "/ws"
+	wsPath         = "/ws"
+	sshUnavailable = "SSH_UNAVAILABLE"
 
 	ReadBufSize  = 32 * 1024
 	WriteBufSize = 32 * 1024
@@ -375,6 +376,7 @@ func handleServerWebSocket(w http.ResponseWriter, r *http.Request, cfg Config) {
 	tcp, err := net.Dial("tcp", sshAddr)
 	if err != nil {
 		logger.Error("Cannot connect to sshd on %s: %v", sshAddr, err)
+		_ = ws.WriteMessage(websocket.TextMessage, []byte(sshUnavailable))
 		session.close()
 		return
 	}
@@ -566,6 +568,15 @@ func runClientSession(s *Session) {
 			messageType, data, err := s.ws.ReadMessage()
 			if err != nil {
 				logger.Debug("WebSocket read ended: %v", err)
+				return
+			}
+
+			if messageType == websocket.TextMessage &&
+				string(data) == sshUnavailable {
+
+				logger.Error("SSH server is unavailable")
+
+				s.tcp.Close()
 				return
 			}
 
