@@ -399,7 +399,7 @@ func runServerSession(s *Session) {
 	go func() {
 		defer wg.Done()
 
-		buf := make([]byte, 32*1024)
+		buf := make([]byte, ReadBufSize)
 
 		for {
 			n, err := s.tcp.Read(buf)
@@ -511,7 +511,7 @@ func runClientSession(s *Session) {
 	go func() {
 		defer wg.Done()
 
-		buf := make([]byte, 32*1024)
+		buf := make([]byte, ReadBufSize)
 
 		for {
 			n, err := s.tcp.Read(buf)
