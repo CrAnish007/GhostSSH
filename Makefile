@@ -12,7 +12,7 @@ all: build
 # statically linked, as before.
 build:
 	mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 $(GO) build -o $(BIN_DIR)/$(BINARY) .
+	CGO_ENABLED=0 $(GO) build -o $(BIN_DIR)/$(BINARY) cmd/gossh/main.go
 
 vet:
 	$(GO) vet ./...
@@ -21,11 +21,11 @@ vet:
 # can be built from any host.
 linux:
 	mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -o $(BIN_DIR)/$(BINARY)-linux-amd64 .
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -o $(BIN_DIR)/$(BINARY)-linux-amd64 cmd/gossh/main.go
 
 mac:
 	mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build -o $(BIN_DIR)/$(BINARY)-darwin-arm64 .
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build -o $(BIN_DIR)/$(BINARY)-darwin-arm64 cmd/gossh/main.go
 
 clean:
 	rm -rf $(BIN_DIR)
