@@ -48,6 +48,8 @@ type Config struct {
 	sshdPort       int
 	tcpServerPort  int
 	wsURL          string
+
+	daemon bool
 }
 
 type Session struct {
@@ -181,6 +183,7 @@ func parseArgs(args []string) (Config, error) {
 		port    int
 		sshPort int
 		connect string
+		daemon  bool
 		quiet   bool
 		v       bool
 		vv      bool
@@ -191,6 +194,7 @@ func parseArgs(args []string) (Config, error) {
 	fs.IntVar(&port, "port", 0, "port")
 	fs.IntVar(&sshPort, "ssh", defaultSSHPort, "SSH port")
 	fs.StringVar(&connect, "connect", "", "remote URL")
+	fs.BoolVar(&daemon, "daemon", false, "daemonize")
 	fs.BoolVar(&quiet, "quiet", false, "quiet")
 	fs.BoolVar(&v, "v", false, "info")
 	fs.BoolVar(&vv, "vv", false, "debug")
@@ -199,6 +203,10 @@ func parseArgs(args []string) (Config, error) {
 
 	if err := fs.Parse(args[1:]); err != nil {
 		return Config{}, err
+	}
+
+	if daemon {
+		cfg.daemon = true
 	}
 
 	if quiet {
