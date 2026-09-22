@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	version = "1.1.0"
+	version = "1.5.0"
 
 	defaultSSHPort  = 22
 	defaultHTTPPort = 7777

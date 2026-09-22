@@ -5,7 +5,24 @@ set -e
 REPO="ankushT369/gossh"
 BINARY="gossh"
 INSTALL_DIR="$HOME/.local/bin"
-URL="https://github.com/$REPO/releases/latest/download/$BINARY"
+
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+
+case "$OS:$ARCH" in
+    Linux:x86_64)
+        ASSET="gossh-linux-amd64"
+        ;;
+    Darwin:arm64)
+        ASSET="gossh-darwin-arm64"
+        ;;
+    *)
+        echo "Error: unsupported platform: $OS $ARCH"
+        exit 1
+        ;;
+esac
+
+URL="https://github.com/$REPO/releases/latest/download/$ASSET"
 TMP_FILE="$(mktemp)"
 
 cleanup() {
@@ -44,7 +61,7 @@ fi
 
 printf "\r[✓] Downloaded gossh  \n"
 
-# Install
+# Install and rename binary
 mv "$TMP_FILE" "$INSTALL_DIR/$BINARY"
 chmod +x "$INSTALL_DIR/$BINARY"
 
@@ -59,48 +76,3 @@ fi
 
 echo
 echo "[✓] run: gossh version"
-
-# #!/bin/bash
-#
-# set -e
-#
-# REPO="ankushT369/gossh"
-# BINARY="gossh"
-# INSTALL_DIR="$HOME/.local/bin"
-#
-# OS="$(uname -s)"
-# ARCH="$(uname -m)"
-#
-# if [ "$OS" != "Linux" ]; then
-#     echo "Error: unsupported OS: $OS"
-#     exit 1
-# fi
-#
-# case "$ARCH" in
-#     x86_64)
-#         ;;
-#     aarch64|arm64)
-#         ;;
-#     *)
-#         echo "Error: unsupported architecture: $ARCH"
-#         exit 1
-#         ;;
-# esac
-#
-# mkdir -p "$INSTALL_DIR"
-#
-# echo "Downloading gossh..."
-#
-# curl -fsSL \
-#     "https://github.com/$REPO/releases/latest/download/$BINARY" \
-#     -o "$INSTALL_DIR/$BINARY"
-#
-# chmod +x "$INSTALL_DIR/$BINARY"
-#
-# echo "gossh installed to $INSTALL_DIR/$BINARY"
-#
-# if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-#     echo
-#     echo "Add this to your shell configuration:"
-#     echo 'export PATH="$HOME/.local/bin:$PATH"'
-# fi

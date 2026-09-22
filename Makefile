@@ -1,8 +1,9 @@
 BINARY := gossh
 BIN_DIR := bin
 GO := go
+RELEASE_LDFLAGS := -ldflags="-s -w"
 
-.PHONY: all build vet test linux mac clean
+.PHONY: all build vet test linux mac release-linux release-mac clean
 
 all: build
 
@@ -12,7 +13,7 @@ all: build
 # statically linked, as before.
 build:
 	mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 $(GO) build -o $(BIN_DIR)/$(BINARY) cmd/gossh/main.go
+	CGO_ENABLED=0 $(GO) build  -o $(BIN_DIR)/$(BINARY) cmd/gossh/main.go
 
 vet:
 	$(GO) vet ./...
@@ -21,11 +22,29 @@ vet:
 # can be built from any host.
 linux:
 	mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -o $(BIN_DIR)/$(BINARY)-linux-amd64 cmd/gossh/main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build \
+		-o $(BIN_DIR)/$(BINARY)-linux-amd64 \
+		cmd/gossh/main.go
 
 mac:
 	mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build -o $(BIN_DIR)/$(BINARY)-darwin-arm64 cmd/gossh/main.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build \
+		-o $(BIN_DIR)/$(BINARY)-darwin-arm64 \
+		cmd/gossh/main.go
+
+release-linux:
+	mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build \
+		$(RELEASE_LDFLAGS) \
+		-o $(BIN_DIR)/$(BINARY)-linux-amd64 \
+		cmd/gossh/main.go
+
+release-mac:
+	mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build \
+		$(RELEASE_LDFLAGS) \
+		-o $(BIN_DIR)/$(BINARY)-darwin-arm64 \
+		cmd/gossh/main.go
 
 clean:
 	rm -rf $(BIN_DIR)
