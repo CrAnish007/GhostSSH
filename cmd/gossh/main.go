@@ -173,7 +173,7 @@ func main() {
 	case serverMode:
 		runErr = server.NewGoSSHServer(
 			server.GoSSHServerConfiguration{
-				Port:    cfg.tcpServerPort,
+				Port:    cfg.httpServerPort,
 				SSHPort: cfg.sshdPort,
 				Timeout: time.Second * 3,
 			},
@@ -182,7 +182,7 @@ func main() {
 	case clientMode:
 		runErr = client.NewGoSSHClient(
 			client.GoSSHClientConfiguration{
-				Port:            cfg.httpServerPort,
+				Port:            cfg.tcpServerPort,
 				RawWebsocketURL: cfg.wsURL,
 			},
 			logger,

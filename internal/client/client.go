@@ -110,8 +110,6 @@ func (gossh GoSSHClient) handleClientTCP(tcp net.Conn, wsURL string, originalURL
 	}
 
 	session := tunnel.NewSession(ws, tcp)
-	defer session.Close()
-
 	gossh.logger.Info("WebSocket connection successfully established")
 
 	gossh.runClientSession(session)

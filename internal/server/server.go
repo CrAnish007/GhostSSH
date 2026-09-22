@@ -65,8 +65,7 @@ func (gossh GoSSHServer) Run() error {
 	conn, err := net.DialTimeout("tcp", sshUrl, gossh.conf.Timeout)
 
 	if err != nil {
-		gossh.logger.Error("SSH server is down or unreachable: %v", err)
-		return err // this is unrecoverable
+		gossh.logger.Warn("SSH server is down or unreachable: %v", err)
 	} else {
 		gossh.logger.Info("SSH server port is open and reachable")
 		conn.Close()
@@ -111,18 +110,19 @@ func (gossh GoSSHServer) handleServerWebSocket(w http.ResponseWriter, r *http.Re
 		gossh.logger.Error("WebSocket upgrade failed: %v", err)
 		return
 	}
+	gossh.logger.Info("WebSocket connection established")
 
 	sshAddr := fmt.Sprintf("localhost:%d", gossh.conf.SSHPort)
 	tcp, err := net.Dial("tcp", sshAddr)
 	if err != nil {
-		gossh.logger.Error("Cannot connect to sshd on %s: %v", sshAddr, err)
+		gossh.logger.Warn("Cannot connect to sshd on %s: %v", sshAddr, err)
 		_ = ws.WriteMessage(websocket.TextMessage, []byte(sshUnavailable))
+		ws.Close()
 		return
 	}
 	gossh.logger.Info("Connected to sshd successfully")
 
 	session := tunnel.NewSession(ws, tcp)
-	gossh.logger.Info("WebSocket connection established")
 
 	gossh.runServerSession(session)
 }
